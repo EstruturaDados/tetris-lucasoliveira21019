@@ -17,6 +17,13 @@ typedef struct {
     int tamanho;
 } Fila;
 
+// Definição da struct Pilha
+typedef struct {
+    Peca *itens;
+    int topo;
+    int capacidade;
+} Pilha;
+
 // Função para inicializar a fila
 Fila* inicializarFila(int capacidade) {
     Fila* fila = (Fila*) malloc(sizeof(Fila));
@@ -38,6 +45,25 @@ Fila* inicializarFila(int capacidade) {
     return fila;
 }
 
+// Função para inicializar a pilha
+Pilha* inicializarPilha(int capacidade) {
+    Pilha* pilha = (Pilha*) malloc(sizeof(Pilha));
+    if (pilha == NULL) {
+        printf("Erro ao alocar memória para a pilha.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    pilha->itens = (Peca*) malloc(capacidade * sizeof(Peca));
+    if (pilha->itens == NULL) {
+        printf("Erro ao alocar memória para os itens da pilha.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    pilha->topo = -1;
+    pilha->capacidade = capacidade;
+    return pilha;
+}
+
 // Função para verificar se a fila está cheia
 int filaCheia(Fila* fila) {
     return fila->tamanho == fila->capacidade;
@@ -48,16 +74,28 @@ int filaVazia(Fila* fila) {
     return fila->tamanho == 0;
 }
 
+// Função para verificar se a pilha está cheia
+int pilhaCheia(Pilha* pilha) {
+    return pilha->topo == pilha->capacidade - 1;
+}
+
+// Função para verificar se a pilha está vazia
+int pilhaVazia(Pilha* pilha) {
+    return pilha->topo == -1;
+}
+
 // Função para inserir uma peça na fila (enqueue)
 void enqueue(Fila* fila, Peca peca) {
     if (filaCheia(fila)) {
-        printf("Fila cheia! Não é possível adicionar mais peças.\n");
-        return;
+        // Sobrescreve o elemento mais antigo
+        fila->frente = (fila->frente + 1) % fila->capacidade;
+        fila->tras = (fila->tras + 1) % fila->capacidade;
+        fila->itens[fila->tras] = peca;
+    } else {
+        fila->tras = (fila->tras + 1) % fila->capacidade;
+        fila->itens[fila->tras] = peca;
+        fila->tamanho++;
     }
-
-    fila->tras = (fila->tras + 1) % fila->capacidade;
-    fila->itens[fila->tras] = peca;
-    fila->tamanho++;
 }
 
 // Função para remover uma peça da fila (dequeue)
@@ -74,9 +112,33 @@ Peca dequeue(Fila* fila) {
     return peca_removida;
 }
 
+// Função para inserir uma peça na pilha (push)
+void push(Pilha* pilha, Peca peca) {
+    if (pilhaCheia(pilha)) {
+        printf("Pilha cheia! Não é possível adicionar mais peças.\n");
+        return;
+    }
+
+    pilha->topo++;
+    pilha->itens[pilha->topo] = peca;
+}
+
+// Função para remover uma peça da pilha (pop)
+Peca pop(Pilha* pilha) {
+    if (pilhaVazia(pilha)) {
+        Peca peca_vazia = {' ', -1};
+        printf("Pilha vazia! Nenhuma peça para remover.\n");
+        return peca_vazia;
+    }
+
+    Peca peca_removida = pilha->itens[pilha->topo];
+    pilha->topo--;
+    return peca_removida;
+}
+
 // Função para mostrar o estado atual da fila
 void mostrarFila(Fila* fila) {
-    printf("Fila de peças:\n");
+    printf("Fila de peças:  ");
     if (filaVazia(fila)) {
         printf("Fila vazia.\n");
         return;
@@ -86,6 +148,20 @@ void mostrarFila(Fila* fila) {
     for (i = 0; i < fila->tamanho; i++) {
         index = (fila->frente + i) % fila->capacidade;
         printf("[%c %d] ", fila->itens[index].tipo, fila->itens[index].id);
+    }
+    printf("\n");
+}
+
+// Função para mostrar o estado atual da pilha
+void mostrarPilha(Pilha* pilha) {
+    printf("Pilha de reserva (Topo -> Base):  ");
+    if (pilhaVazia(pilha)) {
+        printf("Pilha vazia.\n");
+        return;
+    }
+
+    for (int i = pilha->topo; i >= 0; i--) {
+        printf("[%c %d] ", pilha->itens[i].tipo, pilha->itens[i].id);
     }
     printf("\n");
 }
@@ -104,7 +180,9 @@ int main() {
     srand(time(NULL));
 
     int capacidade_fila = 5;
+    int capacidade_pilha = 3;
     Fila* fila_pecas = inicializarFila(capacidade_fila);
+    Pilha* pilha_reserva = inicializarPilha(capacidade_pilha);
     int id_peca = 0;
 
     // Inicializa a fila com 5 peças (capacidade total)
@@ -116,13 +194,16 @@ int main() {
     int opcao;
 
     do {
+        printf("\nEstado atual:\n");
         mostrarFila(fila_pecas);
+        mostrarPilha(pilha_reserva);
 
-        printf("\nOpções de ação:\n");
-        printf("1 - Jogar peça (dequeue)\n");
-        printf("2 - Inserir nova peça (enqueue)\n");
+        printf("\nOpções de Ação:\n");
+        printf("1 - Jogar peça\n");
+        printf("2 - Reservar peça\n");
+        printf("3 - Usar peça reservada\n");
         printf("0 - Sair\n");
-        printf("Escolha uma opção: ");
+        printf("Opção: ");
         scanf("%d", &opcao);
 
         switch (opcao) {
@@ -131,15 +212,36 @@ int main() {
                 if (peca_jogada.id != -1) {
                     printf("Peça jogada: [%c %d]\n", peca_jogada.tipo, peca_jogada.id);
                 }
+                // Adiciona uma nova peça ao final da fila
+                Peca nova_peca = gerarPeca(id_peca++);
+                enqueue(fila_pecas, nova_peca);
                 break;
             }
             case 2: {
-                if (!filaCheia(fila_pecas)) {
+                if (!filaVazia(fila_pecas) && !pilhaCheia(pilha_reserva)) {
+                    Peca peca_reservada = dequeue(fila_pecas);
+                    push(pilha_reserva, peca_reservada);
+                    printf("Peça [%c %d] reservada com sucesso.\n", peca_reservada.tipo, peca_reservada.id);
+
+                    // Adiciona uma nova peça ao final da fila
                     Peca nova_peca = gerarPeca(id_peca++);
                     enqueue(fila_pecas, nova_peca);
-                    printf("Peça adicionada com sucesso!\n");
+
                 } else {
-                    printf("Fila cheia! Não foi possível adicionar nova peça.\n");
+                    if(filaVazia(fila_pecas)){
+                        printf("Não há peças para reservar, a fila está vazia.\n");
+                    } else {
+                        printf("Pilha de reserva cheia. Não é possível reservar.\n");
+                    }
+
+                }
+                break;
+            }
+            case 3: {
+                Peca peca_usada = pop(pilha_reserva);
+                if (peca_usada.id != -1) {
+                    printf("Peça reservada usada: [%c %d]\n", peca_usada.tipo, peca_usada.id);
+                    enqueue(fila_pecas, peca_usada); // Adiciona a peça usada de volta à fila
                 }
                 break;
             }
@@ -154,40 +256,8 @@ int main() {
     // Libera a memória alocada
     free(fila_pecas->itens);
     free(fila_pecas);
+    free(pilha_reserva->itens);
+    free(pilha_reserva);
 
     return 0;
 }
-
-
-    // 🧠 Nível Aventureiro: Adição da Pilha de Reserva
-    //
-    // - Implemente uma pilha linear com capacidade para 3 peças.
-    // - Crie funções como inicializarPilha(), push(), pop(), pilhaCheia(), pilhaVazia().
-    // - Permita enviar uma peça da fila para a pilha (reserva).
-    // - Crie um menu com opção:
-    //      2 - Enviar peça da fila para a reserva (pilha)
-    //      3 - Usar peça da reserva (remover do topo da pilha)
-    // - Exiba a pilha junto com a fila após cada ação com mostrarPilha().
-    // - Mantenha a fila sempre com 5 peças (repondo com gerarPeca()).
-
-
-    // 🔄 Nível Mestre: Integração Estratégica entre Fila e Pilha
-    //
-    // - Implemente interações avançadas entre as estruturas:
-    //      4 - Trocar a peça da frente da fila com o topo da pilha
-    //      5 - Trocar os 3 primeiros da fila com as 3 peças da pilha
-    // - Para a opção 4:
-    //      Verifique se a fila não está vazia e a pilha tem ao menos 1 peça.
-    //      Troque os elementos diretamente nos arrays.
-    // - Para a opção 5:
-    //      Verifique se a pilha tem exatamente 3 peças e a fila ao menos 3.
-    //      Use a lógica de índice circular para acessar os primeiros da fila.
-    // - Sempre valide as condições antes da troca e informe mensagens claras ao usuário.
-    // - Use funções auxiliares, se quiser, para modularizar a lógica de troca.
-    // - O menu deve ficar assim:
-    //      4 - Trocar peça da frente com topo da pilha
-    //      5 - Trocar 3 primeiros da fila com os 3 da pilha
-
- 
-
-
